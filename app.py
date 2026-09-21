@@ -30,6 +30,7 @@ async def run_audit(url):
             v_desc = violation.get("description", "No description provided")
             print(f"{i}. [{v_id}] - {v_desc}")
 
+
         # 5. Close the browser
         await browser.close()
 
