@@ -25,10 +25,23 @@ async def run_audit(url):
         print(f"Audit completed. Found {len(violations)} violations.")
 
         for i, violation in enumerate(violations, 1):
-            # In a dictionary, we use string keys
             v_id = violation.get("id", "N/A")
-            v_desc = violation.get("description", "No description provided")
-            print(f"{i}. [{v_id}] - {v_desc}")
+            v_desc = violation.get("description", "No description")
+            v_impact = violation.get("impact", "unknown")
+
+            print(f"\n{i}. [{v_id.upper()}] - Impact: {v_impact}")
+            print(f"   Description: {v_desc}")
+
+            # Each violation can happen in multiple places (nodes)
+            nodes = violation.get("nodes", [])
+            for node in nodes:
+                # Target is a list of CSS selectors
+                target = node.get("target", ["unknown"])
+                # HTML is the actual code snippet
+                html_snippet = node.get("html", "No HTML snippet available")
+
+                print(f"   - Target: {' > '.join(target)}")
+                print(f"   - Snippet: {html_snippet}")
 
 
         # 5. Close the browser
