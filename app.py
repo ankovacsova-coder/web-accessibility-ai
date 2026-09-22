@@ -1,11 +1,17 @@
 import asyncio
 import sqlite3
 import json
+import os
 import re
 from datetime import datetime
 import streamlit as st
 from playwright.async_api import async_playwright
 from axe_playwright_python.async_playwright import Axe
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# Load environment variables (API Keys and Config)
+load_dotenv()
 
 # 1. Professional UI Configuration
 st.set_page_config(page_title="AI Accessibility Checker", page_icon="🐦‍⬛", layout="wide")
@@ -16,6 +22,7 @@ st.markdown("""
     .stButton>button[kind="secondary"] { text-align: left; width: 100%; color: #1a1a1a !important; background-color: #f0f2f6; border: 1px solid #d1d5db; }
     div[data-baseweb="input"] { border-color: transparent !important; }
     .stTextInput>div>div>input:focus { border-color: #004a99 !important; }
+    .ai-response { background-color: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 5px solid #004a99; margin-top: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -26,8 +33,22 @@ st.title("🐦‍⬛ AI Accessibility Checker")
 def init_db():
     conn = sqlite3.connect("audits.db")
     c = conn.cursor()
-    c.execute(
-        'CREATE TABLE IF NOT EXISTS audits (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT, violation_count INTEGER, full_results TEXT, timestamp DATETIME)')
+    c.execute('''CREATE TABLE IF NOT EXISTS audits
+                 (
+                     id
+                     INTEGER
+                     PRIMARY
+                     KEY
+                     AUTOINCREMENT,
+                     url
+                     TEXT,
+                     violation_count
+                     INTEGER,
+                     full_results
+                     TEXT,
+                     timestamp
+                     DATETIME
+                 )''')
     conn.commit()
     conn.close()
 
@@ -65,52 +86,77 @@ def get_history(limit=10):
 def load_audit_details(audit_id):
     conn = sqlite3.connect("audits.db")
     c = conn.cursor()
-    c.execute("SELECT url, full_results FROM audits WHERE id = ?", (audit_id,))
+    c.execute("SELECT id, url, full_results FROM audits WHERE id = ?", (audit_id,))
     row = c.fetchone()
     conn.close()
-    return (row[0], json.loads(row[1])) if row else (None, None)
+    return (row[0], row[1], json.loads(row[2])) if row else (None, None, None)
 
 
 init_db()
 
-# 3. Session State Initialization
+
+# 3. AI Logic (OpenAI Integration)
+def get_ai_fix_suggestion(v_id, description, html_snippet):
+    """Consults OpenAI to provide a human-readable fix for a specific violation."""
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # Use model from .env, default to gpt-4o-mini for cost efficiency
+        model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+        prompt = f"""
+        Act as a Senior Web Accessibility Expert (WCAG 2.2).
+        Analyze this technical violation and provide a clear fix:
+
+        - Violation: {v_id}
+        - Description: {description}
+        - Broken HTML Snippet: {html_snippet}
+
+        Provide your response in this structure:
+        1. THE PROBLEM: Explain simply why this hurts users.
+        2. THE FIX: Step-by-step instructions.
+        3. CORRECTED CODE: The exact HTML code to use.
+
+        Keep it professional and concise. Use Markdown.
+        """
+
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"⚠️ AI Analysis failed: {str(e)}"
+
+
+# 4. Session State & Callbacks
 if "display_results" not in st.session_state:
     st.session_state["display_results"] = None
 if "display_url" not in st.session_state:
     st.session_state["display_url"] = ""
+if "display_id" not in st.session_state:
+    st.session_state["display_id"] = None
 if "trigger_audit" not in st.session_state:
     st.session_state["trigger_audit"] = False
 
 
-# 4. Helper Functions & Callbacks
 def handle_trigger():
     st.session_state["trigger_audit"] = True
 
 
 def clear_all():
+    for key in list(st.session_state.keys()):
+        if key.startswith("ai_res_") or key in ["display_results", "display_url", "display_id", "trigger_audit"]:
+            del st.session_state[key]
     st.session_state["url_input"] = ""
-    st.session_state["display_results"] = None
-    st.session_state["display_url"] = ""
-    st.session_state["trigger_audit"] = False
-
-
-def is_valid_url(url):
-    """Basic validation to check if the input looks like a valid domain."""
-    # Pattern: text + dot + at least 2 chars for TLD
-    pattern = re.compile(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-    clean_url = url.replace("https://", "").replace("http://", "").split('/')[0]
-    return bool(pattern.match(clean_url))
+    st.rerun()
 
 
 def prepare_url(url):
     url = url.strip()
-    if not url:
-        return None
-    if not is_valid_url(url):
-        st.error(f"Invalid format: '{url}'. Please enter a valid domain (e.g., example.com).")
-        return None
+    if not url: return None
     if not url.startswith(("http://", "https://")):
-        return "https://" + url
+        url = "https://" + url
     return url
 
 
@@ -146,9 +192,10 @@ with st.sidebar:
     st.header("Recent History")
     for a_id, h_url, h_count, h_time in get_history():
         if st.button(f"📄 {h_url}\n{h_time}", key=f"hist_{a_id}"):
-            url, results = load_audit_details(a_id)
+            db_id, url, results = load_audit_details(a_id)
             st.session_state["display_results"] = results
             st.session_state["display_url"] = url
+            st.session_state["display_id"] = db_id
             st.session_state["trigger_audit"] = False
 
 # 7. Main Area Logic
@@ -162,8 +209,13 @@ if st.session_state["trigger_audit"]:
             if results:
                 violations = results.get("violations", [])
                 save_audit(final_url, len(violations), results)
-                st.session_state["display_results"] = results
-                st.session_state["display_url"] = final_url
+                # Reload to get the latest DB ID
+                history = get_history(1)
+                if history:
+                    db_id, url, res = load_audit_details(history[0][0])
+                    st.session_state["display_results"] = res
+                    st.session_state["display_url"] = url
+                    st.session_state["display_id"] = db_id
                 st.session_state["trigger_audit"] = False
                 st.rerun()
     st.session_state["trigger_audit"] = False
@@ -172,18 +224,41 @@ if st.session_state["trigger_audit"]:
 if st.session_state["display_results"]:
     res = st.session_state["display_results"]
     url = st.session_state["display_url"]
+    audit_id = st.session_state["display_id"]
     violations = res.get("violations", [])
 
-    st.success(f"Results for: {url}")
+    st.success(f"Viewing results for: {url}")
     st.metric("Total Violations", len(violations))
 
     for i, violation in enumerate(violations, 1):
+        v_id = violation.get('id', 'unknown').upper()
         impact = violation.get('impact', 'unknown').upper()
-        with st.expander(f"{i}. [{violation['id'].upper()}] - {impact}"):
+
+        with st.expander(f"{i}. [{v_id}] - {impact}"):
             st.write(f"**Description:** {violation['description']}")
-            for node in violation.get("nodes", []):
+
+            nodes = violation.get("nodes", [])
+            if nodes:
+                node = nodes[0]
+                st.write("**Technical Details:**")
                 st.code(node.get("html"), language="html")
                 st.caption(f"Target: {' > '.join(node.get('target'))}")
+
+                st.divider()
+
+                # AI Analysis Section
+                ai_storage_key = f"ai_res_{audit_id}_{v_id}"
+
+                if st.button(f"✨ Get AI Fix for {v_id}", key=f"btn_{ai_storage_key}"):
+                    with st.spinner("Consulting AI Expert..."):
+                        suggestion = get_ai_fix_suggestion(v_id, violation['description'], node.get("html"))
+                        st.session_state[ai_storage_key] = suggestion
+
+                if ai_storage_key in st.session_state:
+                    st.markdown('<div class="ai-response">', unsafe_allow_html=True)
+                    st.markdown("### 🐦‍⬛ AI Expert Analysis")
+                    st.markdown(st.session_state[ai_storage_key])
+                    st.markdown('</div>', unsafe_allow_html=True)
 else:
     if not st.session_state.url_input:
         st.info("👈 Enter a URL in the sidebar and press Enter or click 'Run Audit'.")

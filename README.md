@@ -1,23 +1,22 @@
 AI Accessibility Checker 🐦‍⬛
-A professional, high-performance web accessibility auditing platform powered by Playwright, Axe-core, and SQLite. This application provides deep technical insights into WCAG compliance and maintains a persistent history of audits for long-term quality tracking.
+A professional, high-performance web accessibility auditing platform powered by Playwright, Axe-core, and OpenAI. This application provides deep technical insights into WCAG compliance and utilizes AI to provide human-readable remediation advice and code fixes.
 
 🚀 Key Features
-Automated Deep Scanning: Utilizes the industry-standard Axe-core engine to perform comprehensive DOM analysis.
-Persistent History: Integrated SQLite database to store and retrieve full audit results (JSON) for historical comparison.
+Automated Deep Scanning: Comprehensive DOM analysis using the industry-standard Axe-core engine.
+AI-Powered Remediation: Integrated OpenAI GPT-4o analysis for every violation, providing:
+Human-readable explanations of the impact.
+Step-by-step fix instructions.
+Corrected HTML code snippets ready for implementation.
+Persistent History: Integrated SQLite database to store and retrieve full audit results (JSON) for historical tracking.
 Interactive Dashboard: A modern, wide-layout UI built with Streamlit, featuring a dedicated sidebar for controls and history management.
-Technical Precision: Detailed violation reports including:
-Impact levels (Critical, Serious, Moderate, Minor).
-Exact CSS selector paths (Targets).
-Syntax-highlighted HTML snippets of affected elements.
-Smart URL Validation: Built-in regex validation to ensure correct domain formatting and automatic protocol handling (HTTPS).
-AI-Native Ready: Data structure optimized for Phase 3: AI-driven remediation and automated code fixing.
+Smart URL Validation: Built-in regex validation and automatic HTTPS protocol handling.
 🛠️ Tech Stack
 Language: Python 3.12+
 Browser Automation: Playwright
-Accessibility Engine: Axe-core (via axe-playwright-python)
-Database: SQLite (Local persistence)
+Accessibility Engine: Axe-core
+AI Integration: OpenAI API (GPT-4o)
+Database: SQLite
 Frontend: Streamlit
-Environment Management: python-dotenv
 📦 Installation
 Clone the repository:
 
@@ -26,27 +25,24 @@ cd web-accessibility-ai
 Set up a virtual environment:
 
 python -m venv .venv
-# Activate on Windows:
 .venv\Scripts\activate
 Install dependencies:
 
 pip install -r requirements.txt
+Configure Environment Variables: Create a .env file in the root directory and add your OpenAI API key:
+
+OPENAI_API_KEY=your_sk_key_here
 Install Playwright browsers:
 
 playwright install chromium
 🖥️ Usage
 Run the application:
 streamlit run app.py
-Perform an Audit: Enter a domain (e.g., example.com) in the sidebar and press Enter or click "Run Audit".
-Browse History: Click on any previous audit in the "Recent History" sidebar to instantly reload and view its detailed results.
-Clear State: Use the "Clear" button to reset the UI and input fields.
-💾 Database & Persistence
-The application automatically initializes a local SQLite database (audits.db) upon first launch.
-
-Full Results: Unlike basic tools, this platform stores the entire JSON response from the audit engine, ensuring no data is lost for future analysis.
-Privacy: The database file is excluded from version control via .gitignore to protect private audit data.
+Perform an Audit: Enter a domain in the sidebar and click "Run Audit".
+Get AI Assistance: Expand any violation in the results and click "✨ Get AI Fix" to receive expert remediation advice.
+Browse History: Click on any previous audit in the sidebar to instantly reload past results.
+💾 Database & Privacy
+Full audit results are stored locally in audits.db.
+The database and .env files are excluded from version control to ensure data privacy and security.
 🔍 Accessibility Audit of this Tool
-This tool has been audited using its own engine to ensure transparency.
-
-Known Issues: As a prototype built on the Streamlit framework, certain framework-level violations (ARIA roles in sidebar, region landmarks) are documented.
-Strategic Resolution: For production environments, a migration to a custom frontend implementation (e.g., a dedicated web framework) is planned to ensure 100% WCAG 2.2 compliance.
+This tool has been audited using its own engine. Framework-level limitations (Streamlit) are documented in the code, with a strategic roadmap for migration to a custom frontend for 100% WCAG 2.2 compliance in production.
