@@ -5,6 +5,37 @@ from axe_playwright_python.async_playwright import Axe
 
 # 1. Professional UI Configuration
 st.set_page_config(page_title="AI Accessibility Checker", page_icon="🐦‍⬛", layout="wide")
+
+# Custom CSS to improve contrast and fix UI issues
+st.markdown("""
+    <style>
+    /* 1. Improve contrast for primary buttons */
+    .stButton>button[kind="primary"] {
+        background-color: #004a99;
+        color: white;
+        border: 1px solid white;
+        font-weight: bold;
+    }
+
+    /* 2. KILL THE RED BORDER on text input */
+    /* This targets the input field when it's focused or active */
+    .stTextInput>div>div>input:focus {
+        border-color: #004a99 !important;
+        box-shadow: 0 0 0 0.2rem rgba(0, 74, 153, 0.25) !important;
+    }
+
+    /* This targets the container to prevent the red glow */
+    .st-emotion-cache-163npsa:focus-within {
+        border-color: #004a99 !important;
+    }
+
+    /* General fix for the red ghost border */
+    div[data-baseweb="input"] {
+        border-color: transparent !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 st.title("🐦‍⬛ AI Accessibility Checker")
 
 # Initialize session state for triggering the audit
