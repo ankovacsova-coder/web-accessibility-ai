@@ -1,54 +1,99 @@
 import asyncio
+import streamlit as st
 from playwright.async_api import async_playwright
 from axe_playwright_python.async_playwright import Axe
 
+# 1. Professional UI Configuration
+st.set_page_config(page_title="AI Accessibility Checker", page_icon="🐦‍⬛", layout="wide")
+st.title("🐦‍⬛ AI Accessibility Checker")
 
+# Initialize session state for triggering the audit
+if "run_audit" not in st.session_state:
+    st.session_state["run_audit"] = False
+
+
+# 2. Helper function to ensure URL has a protocol
+def prepare_url(url):
+    url = url.strip()
+    if not url.startswith(("http://", "https://")):
+        return "https://" + url
+    return url
+
+
+# 3. Callback functions for UI controls
+def trigger_audit():
+    st.session_state["run_audit"] = True
+
+
+def clear_all():
+    st.session_state["url_input"] = ""
+    st.session_state["run_audit"] = False
+
+
+# 4. Core Audit Logic (Async)
 async def run_audit(url):
     async with async_playwright() as p:
-        # 1. Launch the browser
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-
-        print(f"Starting accessibility audit for: {url}")
-
-        # 2. Navigate to the target page
-        await page.goto(url)
-
-        # 3. Initialize and run the Axe accessibility audit
-        axe = Axe()
-        results = await axe.run(page)
-
-        # 4. Convert results to a dictionary for easier access
-        results_dict = results.response
-        violations = results_dict.get("violations", [])
-
-        print(f"Audit completed. Found {len(violations)} violations.")
-
-        for i, violation in enumerate(violations, 1):
-            v_id = violation.get("id", "N/A")
-            v_desc = violation.get("description", "No description")
-            v_impact = violation.get("impact", "unknown")
-
-            print(f"\n{i}. [{v_id.upper()}] - Impact: {v_impact}")
-            print(f"   Description: {v_desc}")
-
-            # Each violation can happen in multiple places (nodes)
-            nodes = violation.get("nodes", [])
-            for node in nodes:
-                # Target is a list of CSS selectors
-                target = node.get("target", ["unknown"])
-                # HTML is the actual code snippet
-                html_snippet = node.get("html", "No HTML snippet available")
-
-                print(f"   - Target: {' > '.join(target)}")
-                print(f"   - Snippet: {html_snippet}")
+        try:
+            await page.goto(url, wait_until="networkidle", timeout=60000)
+            axe = Axe()
+            results = await axe.run(page)
+            return results.response
+        except Exception as e:
+            st.error(f"Error during audit: {e}")
+            return None
+        finally:
+            await browser.close()
 
 
-        # 5. Close the browser
-        await browser.close()
+# 5. Sidebar for Input and Controls
+with st.sidebar:
+    st.header("Audit Settings")
 
+    # on_change triggers when user hits Enter
+    target_url = st.text_input(
+        "Target URL:",
+        placeholder="example.com",
+        key="url_input",
+        on_change=trigger_audit
+    )
 
-# Main execution block for testing on a known accessibility test page
-if __name__ == "__main__":
-    target_url = "https://www.washington.edu/accesscomputing/AU/before.html"
-    asyncio.run(run_audit(target_url))
+    col1, col2 = st.columns(2)
+    with col1:
+        # on_click triggers when user clicks the button
+        st.button("Run Audit", type="primary", use_container_width=True, on_click=trigger_audit)
+    with col2:
+        st.button("Clear", use_container_width=True, on_click=clear_all)
+
+    st.divider()
+    st.caption("Powered by Axe-core & Playwright")
+
+# 6. Main Area Execution Logic
+if st.session_state["run_audit"]:
+    if target_url:
+        final_url = prepare_url(target_url)
+        with st.spinner(f"Performing accessibility audit for {final_url}..."):
+            results = asyncio.run(run_audit(final_url))
+
+            if results:
+                violations = results.get("violations", [])
+                st.success(f"Audit complete for {final_url}. Found {len(violations)} violations.")
+
+                for i, violation in enumerate(violations, 1):
+                    impact = violation.get('impact', 'unknown').upper()
+                    with st.expander(f"{i}. [{violation['id'].upper()}] - {impact}"):
+                        st.write(f"**Description:** {violation['description']}")
+                        st.write("**Affected Elements:**")
+                        for node in violation.get("nodes", []):
+                            st.code(node.get("html"), language="html")
+                            st.caption(f"Target: {' > '.join(node.get('target'))}")
+
+        # Reset the trigger so it doesn't run again on next interaction
+        st.session_state["run_audit"] = False
+    else:
+        st.warning("Please enter a URL in the sidebar to start the audit.")
+        st.session_state["run_audit"] = False
+else:
+    if not target_url:
+        st.info("👈 Enter a URL in the sidebar and click 'Run Audit' or press Enter to begin.")
