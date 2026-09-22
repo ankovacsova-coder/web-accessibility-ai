@@ -219,3 +219,6 @@ __marimo__/
 
 # My private environment variables
 .env
+
+#  My private database file
+audits.db

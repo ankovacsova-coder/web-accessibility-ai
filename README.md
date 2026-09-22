@@ -1,17 +1,21 @@
 AI Accessibility Checker 🐦‍⬛
+A professional, high-performance web accessibility auditing platform powered by Playwright, Axe-core, and SQLite. This application provides deep technical insights into WCAG compliance and maintains a persistent history of audits for long-term quality tracking.
 
-A professional web accessibility auditing tool powered by Playwright, Axe-core, and AI. 
-This application scans websites for WCAG compliance violations and provides technical insights for developers.
-
-🚀 Features
-Automated Scanning: Deep DOM analysis using the industry-standard Axe-core engine.
-Technical Insights: Detailed reports including impact levels, CSS selectors (targets), and HTML snippets.
-Interactive UI: A clean, web-based dashboard built with Streamlit.
-AI-Native Ready: Structured data output prepared for AI-driven remediation (Phase 3).
+🚀 Key Features
+Automated Deep Scanning: Utilizes the industry-standard Axe-core engine to perform comprehensive DOM analysis.
+Persistent History: Integrated SQLite database to store and retrieve full audit results (JSON) for historical comparison.
+Interactive Dashboard: A modern, wide-layout UI built with Streamlit, featuring a dedicated sidebar for controls and history management.
+Technical Precision: Detailed violation reports including:
+Impact levels (Critical, Serious, Moderate, Minor).
+Exact CSS selector paths (Targets).
+Syntax-highlighted HTML snippets of affected elements.
+Smart URL Validation: Built-in regex validation to ensure correct domain formatting and automatic protocol handling (HTTPS).
+AI-Native Ready: Data structure optimized for Phase 3: AI-driven remediation and automated code fixing.
 🛠️ Tech Stack
 Language: Python 3.12+
 Browser Automation: Playwright
 Accessibility Engine: Axe-core (via axe-playwright-python)
+Database: SQLite (Local persistence)
 Frontend: Streamlit
 Environment Management: python-dotenv
 📦 Installation
@@ -33,25 +37,16 @@ playwright install chromium
 🖥️ Usage
 Run the application:
 streamlit run app.py
-Access the dashboard: Open your browser at http://localhost:8501.
-Perform an audit: Enter a target URL and click "Run Audit".
-🔒 Security
-API keys and private configurations are stored in a .env file.
-The .env file is excluded from version control via .gitignore.
+Perform an Audit: Enter a domain (e.g., example.com) in the sidebar and press Enter or click "Run Audit".
+Browse History: Click on any previous audit in the "Recent History" sidebar to instantly reload and view its detailed results.
+Clear State: Use the "Clear" button to reset the UI and input fields.
+💾 Database & Persistence
+The application automatically initializes a local SQLite database (audits.db) upon first launch.
 
+Full Results: Unlike basic tools, this platform stores the entire JSON response from the audit engine, ensuring no data is lost for future analysis.
+Privacy: The database file is excluded from version control via .gitignore to protect private audit data.
 🔍 Accessibility Audit of this Tool
-To demonstrate the integrity of this project, the AI Accessibility Checker has been audited using its own engine. The following findings represent the current state of the Streamlit-based prototype:
+This tool has been audited using its own engine to ensure transparency.
 
-Known Issues (Framework Related)
-As this tool is a prototype built on the Streamlit framework, certain accessibility violations are present in the generated HTML structure that cannot be directly modified within the Python layer:
-
-[ARIA-ALLOWED-ATTR] (Critical): The framework applies aria-expanded to <section> elements (sidebar), which is technically non-compliant with standard ARIA roles.
-[COLOR-CONTRAST] (Serious): Certain default Streamlit components (e.g., info banners, footer links) do not meet the WCAG AA minimum contrast ratio.
-[REGION] (Moderate): Some framework-generated containers are not wrapped in appropriate HTML5 landmarks (e.g., main, nav).
-
-Strategic Resolution
-In a production environment, these issues would be resolved by:
-
-Custom Frontend Implementation: Migrating from a rapid prototyping framework to a production-ready frontend solution (e.g., a dedicated web framework or a custom-built UI) that allows full control over semantic HTML and ARIA attributes.
-Accessible Design System: Implementing a verified design system with color palettes that strictly adhere to WCAG contrast requirements.
-Semantic Structure: Ensuring all page regions are correctly identified using standard HTML5 landmarks and appropriate ARIA roles.
+Known Issues: As a prototype built on the Streamlit framework, certain framework-level violations (ARIA roles in sidebar, region landmarks) are documented.
+Strategic Resolution: For production environments, a migration to a custom frontend implementation (e.g., a dedicated web framework) is planned to ensure 100% WCAG 2.2 compliance.
