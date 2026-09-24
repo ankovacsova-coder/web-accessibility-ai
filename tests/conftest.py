@@ -21,6 +21,7 @@ def run_streamlit():
 
     timeout = 30
     start_time = time.time()
+
     while time.time() - start_time < timeout:
         try:
             if requests.get("http://localhost:8501").status_code == 200:

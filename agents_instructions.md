@@ -4,7 +4,7 @@
 
 Build a Streamlit-based web accessibility auditing application that scans public web pages, stores results locally, and optionally generates AI-based accessibility explanations and remediation guidance.
 
-This document is intended to help an AI system recreate the application with minimal additional prompting. It should define the app’s required architecture, behavior, UI, data flow, and testing expectations.
+This document is intended to help an AI system recreate the application with minimal additional prompting. It should define the app’s required architecture, behavior, UI, data flow, testing expectations, and documentation consistency requirements.
 
 ---
 
@@ -44,15 +44,19 @@ web-accessibility-ai/
 ├── requirements.txt
 ├── README.md
 ├── agents_instructions.md
-└── tests/
-    ├── conftest.py
-    ├── test_ui.py
-    └── test_functionality.py
+├── .env.example
+├── tests/
+│   ├── conftest.py
+│   ├── test_ui.py
+│   └── test_functionality.py
+└── .github/
+    └── workflows/
+        └── ci.yml
 ```
 
 Optional:
-- `.env.example`
 - `.gitignore`
+- `requirements-dev.txt`
 
 ---
 
@@ -127,7 +131,6 @@ AI responses should be cached in `st.session_state` using a stable key derived f
 Use SQLite with a table named `audits`.
 
 Required schema:
-
 - `id` INTEGER PRIMARY KEY AUTOINCREMENT
 - `url` TEXT
 - `violation_count` INTEGER
@@ -231,6 +234,8 @@ Should:
 
 Use `sys.executable -m streamlit run app.py` rather than relying on a global `streamlit` command.
 
+Tests should remain aligned with actual rendered widget labels and selectors.
+
 ---
 
 ## Environment Variables
@@ -242,6 +247,33 @@ Required:
 
 Optional:
 - `OPENAI_MODEL` with default `gpt-4o-mini`
+
+`.env` files must use standard dotenv syntax:
+
+```env
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+```
+
+Do not place GitHub Actions expressions such as `${{ secrets.OPENAI_API_KEY }}` inside `.env`.  
+Those expressions are valid only inside GitHub Actions workflow YAML files.
+
+---
+
+## CI / Automation Requirements
+
+The generated project should be compatible with GitHub Actions.
+
+Minimum CI expectations:
+- run tests on `push` to `main`
+- optionally run tests on pull requests targeting `main`
+- install Python dependencies
+- install Playwright browser binaries
+- run `pytest`
+- inject secrets through workflow `env:` configuration or repository secrets
+- never commit real secrets to the repository
+
+If browser-based tests are included, the workflow should install Chromium using Playwright.
 
 ---
 
@@ -294,6 +326,7 @@ A generated version of the app is acceptable only if it satisfies all of the fol
 8. the project includes Playwright pytest tests
 9. tests are aligned with the actual rendered UI
 10. dependencies are pinned in `requirements.txt`
+11. the project includes a GitHub Actions CI workflow
 
 ---
 
@@ -305,7 +338,10 @@ When generating the app:
 - avoid unnecessary abstractions
 - use stable widget labels and keys so tests remain reliable
 - ensure the final code is consistent with the README and tests
+- ensure CI instructions match actual project files
 - do not document features that are not actually implemented
+
+Documentation, tests, and implementation must describe only features that actually exist in the codebase. Do not claim support for validation, duplicate suppression, export, crawling, or authentication unless those features are fully implemented.
 
 ---
 
@@ -315,5 +351,7 @@ The following must always remain aligned:
 - widget labels in `app.py`
 - selectors used in tests
 - workflow described in `README.md`
+- environment variable examples in `.env.example`
+- CI secret usage in workflow files
 
-If any UI label or input behavior changes, update all three.
+If any UI label, selector, environment setup, or input behavior changes, update all related files.

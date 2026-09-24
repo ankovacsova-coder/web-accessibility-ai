@@ -113,42 +113,46 @@ web-accessibility-ai/
 ├── requirements.txt
 ├── README.md
 ├── agents_instructions.md
-├── audits.db
-└── tests/
-    ├── conftest.py
-    ├── test_ui.py
-    └── test_functionality.py
+├── .env.example
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── tests/
+│   ├── conftest.py
+│   ├── test_ui.py
+│   └── test_functionality.py
+└── audits.db
 ```
 
 ---
 
 ## Installation
 
-## 1. Clone the repository
+### 1. Clone the repository
 
 ```powershell
 git clone <your-repository-url>
 cd web-accessibility-ai
 ```
 
-## 2. Create and activate a virtual environment
+### 2. Create and activate a virtual environment
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-## 3. Install Python dependencies
+### 3. Install Python dependencies
 
 ```powershell
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 4. Install Playwright browser binaries
+### 4. Install Playwright browser binaries
 
 ```powershell
-playwright install chromium
+python -m playwright install chromium
 ```
 
 ---
@@ -158,7 +162,7 @@ playwright install chromium
 Create a `.env` file in the project root:
 
 ```env
-OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
 ```
 
@@ -169,6 +173,10 @@ OPENAI_MODEL=gpt-4o-mini
 
 - `OPENAI_MODEL`  
   Optional. Defaults to `gpt-4o-mini` if not set.
+
+> Important: `.env` files must use standard `KEY=value` syntax.  
+> Do **not** use GitHub Actions expressions such as `${{ secrets.OPENAI_API_KEY }}` inside `.env`.  
+> That syntax belongs only in GitHub Actions workflow YAML files.
 
 ---
 
@@ -245,6 +253,28 @@ pytest -q
 - Tests require Playwright and Chromium to be installed
 - Tests are end-to-end UI tests, so they depend on the rendered Streamlit interface
 - Tests may be slower when a real external website is audited
+- Tests that depend on live websites may be more fragile because of network variability or anti-bot protections
+
+---
+
+## Continuous Integration
+
+This project can be tested automatically with GitHub Actions.
+
+A typical CI workflow should:
+- install Python dependencies
+- install Playwright browser binaries
+- run pytest
+
+When using GitHub Actions, pass secrets through workflow environment variables, for example:
+
+```yaml
+env:
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  OPENAI_MODEL: gpt-4o-mini
+```
+
+Do not commit real secrets to the repository and do not place GitHub Actions secret expressions inside `.env`.
 
 ---
 
@@ -254,7 +284,7 @@ pytest -q
 If you see errors about missing browser binaries:
 
 ```powershell
-playwright install chromium
+python -m playwright install chromium
 ```
 
 ### AI insight generation fails
@@ -308,7 +338,9 @@ The app audits a loaded page in a headless Chromium session. It does not current
 - `.env` should never be committed to Git
 - `audits.db` may contain sensitive audit history and should not be committed
 - AI prompts may include HTML snippets from audited pages
-- Use caution when auditing pages containing sensitive content
+- use caution when auditing pages containing sensitive content
+- `.env` must use standard dotenv syntax: `KEY=value`
+- GitHub Actions secret expressions must only be used in workflow YAML files
 
 ---
 
