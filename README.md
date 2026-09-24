@@ -1,78 +1,341 @@
 # AI Accessibility Checker 🔍
 
-A professional, high-performance web accessibility auditing platform powered by **Playwright**, **Axe-core**, and **OpenAI**. This application provides deep technical insights into WCAG 2.2 compliance and utilizes AI to bridge the gap between technical violations and business impact.
+A Streamlit-based web accessibility auditing application powered by **Playwright**, **axe-core**, and **OpenAI**.
 
-## 🚀 Key Features
+This tool scans public web pages for accessibility issues, stores audit history locally, and optionally generates AI-assisted explanations and remediation guidance for each violation.
 
-- **Automated Deep Scanning:** Comprehensive DOM analysis using the industry-standard Axe-core engine.
-- **Dual-Audience AI Insights:** Integrated **GPT-4o** analysis that provides:
-  - 👤 **User Experience Impact:** Empathetic, non-technical explanations of how errors affect people with disabilities.
-  - 💼 **Business & Legal Risk:** Analysis of compliance risks (e.g., European Accessibility Act 2025) and potential customer loss.
-  - 🛠️ **Technical Remediation:** Step-by-step fix instructions and production-ready HTML snippets.
-- **Persistent Audit History:** Integrated **SQLite database** to store and retrieve full JSON results for historical tracking and comparison.
-- **Modern SaaS Interface:** A clean, wide-layout dashboard built with **Streamlit**, featuring the **Inter** font and high-contrast professional styling.
-- **Smart Validation:** Built-in URL regex validation and automatic HTTPS handling.
+---
 
-## 🛠️ Tech Stack
+## Overview
 
-- **Language:** Python 3.12+
-- **Browser Automation:** Playwright
-- **Accessibility Engine:** Axe-core
-- **AI Integration:** OpenAI API (GPT-4o-mini / GPT-4o)
-- **Database:** SQLite
-- **Frontend:** Streamlit (Custom CSS)
+The application is designed to help developers, QA engineers, accessibility specialists, and product teams:
 
-## 📦 Installation & Setup
+- run accessibility audits against live websites
+- review violations grouped by severity and rule ID
+- understand accessibility issues in both technical and business terms
+- store historical audit results locally for later review
+- generate AI explanations and remediation suggestions for specific issues
 
-### 1. Environment Setup
+The app combines:
 
-Clone the repository and create a dedicated virtual environment to ensure dependency isolation:
+- **Playwright** for browser automation
+- **axe-core** via `axe-playwright-python` for accessibility analysis
+- **Streamlit** for the user interface
+- **SQLite** for local audit history
+- **OpenAI** for AI-generated issue explanations and remediation guidance
 
-```bash
+---
+
+## Main Features
+
+- **Accessibility scanning of live web pages**
+- **Automatic HTTPS prefixing** for domains entered without protocol
+- **Persistent audit history** stored in a local SQLite database
+- **Expandable issue details** for each violation
+- **AI-generated explanations** for:
+  - user impact
+  - business and legal risk
+  - technical remediation suggestions
+- **Simple operator workflow** through a sidebar-based interface
+
+---
+
+## How the Application Works
+
+### 1. Enter a URL
+The user types a domain or URL in the sidebar input field.
+
+Examples:
+
+- `example.com`
+- `https://example.com`
+- `https://www.w3.org/WAI/`
+
+If the input does not start with `http://` or `https://`, the app automatically prefixes it with `https://`.
+
+### 2. Run the audit
+When the user clicks **Run audit**, the app:
+
+1. launches a headless Chromium browser using Playwright
+2. opens the target page
+3. runs an accessibility scan using axe-core
+4. collects the results
+5. stores the full JSON response in SQLite
+6. displays a summary and detailed violations in the UI
+
+### 3. Review the results
+For each violation, the app shows:
+
+- rule ID
+- impact level
+- human-readable issue description
+- one example HTML node from the page
+
+### 4. Generate AI insights
+For each violation, the user can click **Generate AI Insight**.
+
+The app sends the following to the OpenAI API:
+
+- violation ID
+- violation description
+- related HTML snippet
+
+The AI response is expected to provide:
+
+1. **User Experience Impact**
+2. **Business & Legal Risk**
+3. **Technical Remediation**
+
+### 5. Reopen previous audits
+Past audits are listed in the sidebar under **Audit History**.
+
+Clicking a history item reloads the stored result from `audits.db` without re-running the scan.
+
+---
+
+## Tech Stack
+
+- **Python** 3.12+
+- **Streamlit**
+- **Playwright**
+- **axe-playwright-python**
+- **OpenAI Python SDK**
+- **SQLite**
+- **python-dotenv**
+
+---
+
+## Project Structure
+
+```text
+web-accessibility-ai/
+├── app.py
+├── requirements.txt
+├── README.md
+├── agents_instructions.md
+├── audits.db
+└── tests/
+    ├── conftest.py
+    ├── test_ui.py
+    └── test_functionality.py
+```
+
+---
+
+## Installation
+
+## 1. Clone the repository
+
+```powershell
 git clone <your-repository-url>
 cd web-accessibility-ai
+```
 
+## 2. Create and activate a virtual environment
+
+```powershell
 python -m venv .venv
-# Activate on Windows:
-.venv\Scripts\activate
+.venv\Scripts\Activate.ps1
+```
 
+## 3. Install Python dependencies
+
+```powershell
+python -m pip install --upgrade pip
 pip install -r requirements.txt
+```
+
+## 4. Install Playwright browser binaries
+
+```powershell
 playwright install chromium
 ```
 
-### 2. Configuration
+---
 
-The application uses environment variables for secure configuration. Create a `.env` file in the root directory:
+## Environment Variables
+
+Create a `.env` file in the project root:
 
 ```env
-OPENAI_API_KEY=your_sk_key_here
+OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_MODEL=gpt-4o-mini
 ```
 
-### 3. Usage
+### Variables
 
-1. **Launch the App:** Run `streamlit run app.py` in your terminal.
-2. **Perform an Audit:** Enter a domain (e.g., `example.com`) in the sidebar and click **"Run Audit"**.
-3. **Get AI Assistance:** Expand any violation in the results and click **"✨ Generate AI Insight"** for a comprehensive business and technical breakdown.
-4. **Browse History:** Click on any previous audit in the **"Audit History"** section in the sidebar to instantly reload past results without re-scanning.
+- `OPENAI_API_KEY`  
+  Required only if you want AI-generated insights.
 
-### 4. Data Privacy
+- `OPENAI_MODEL`  
+  Optional. Defaults to `gpt-4o-mini` if not set.
 
-- **Local Storage:** All audit data, including full JSON responses from the engine, is stored locally in a SQLite database (`audits.db`).
-- **Security:** The database file and `.env` configuration are explicitly excluded from version control via `.gitignore` to ensure that sensitive API keys and private audit data are never leaked.
+---
 
-### 5. Self-Audit & Transparency
+## Running the Application
 
-This tool has been audited using its own engine to ensure integrity and demonstrate professional transparency.
+Start the Streamlit app:
 
-#### Known Issues (Framework Related)
+```powershell
+streamlit run app.py
+```
 
-As a prototype built on the Streamlit framework, certain accessibility violations are present in the generated HTML structure that cannot be directly modified within the Python layer:
+Then open the local URL shown in the terminal, typically:
 
-- **`[ARIA-ALLOWED-ATTR]`:** The framework applies non-standard ARIA attributes to certain sidebar elements.
-- **`[REGION]`:** Some framework-generated containers lack appropriate HTML5 landmarks.
-- **`[COLOR-CONTRAST]`:** Certain default framework components (like info banners) may have sub-optimal contrast ratios.
+```text
+http://localhost:8501
+```
 
-#### Strategic Resolution
+---
 
-In a production environment, these issues would be resolved by migrating the frontend to a custom implementation (e.g., a dedicated web framework) to ensure 100% WCAG 2.2 compliance and full control over semantic HTML and ARIA roles.
+## Usage Guide
+
+### Run an accessibility audit
+1. Launch the app
+2. Enter a domain or full URL in the sidebar
+3. Click **Run audit**
+4. Wait for the scan to complete
+5. Review the total number of violations and issue details
+
+### Clear current state
+Click **Clear** to reset:
+- current input
+- current displayed results
+- cached AI outputs in session state
+
+### Reopen previous results
+Use the **Audit History** section in the sidebar to reload a previous scan.
+
+### Generate AI remediation help
+Expand a violation and click **Generate AI Insight**.
+
+---
+
+## Local Data Storage
+
+The app stores audit results in a local SQLite database:
+
+- file: `audits.db`
+- table: `audits`
+
+Stored fields include:
+- `id`
+- `url`
+- `violation_count`
+- `full_results`
+- `timestamp`
+
+The `full_results` field stores the entire axe-core response as JSON text so that results can be reloaded later without rescanning.
+
+---
+
+## Testing
+
+The project includes Playwright-based UI tests under `tests/`.
+
+### Run tests
+
+```powershell
+pytest -q
+```
+
+### Notes about tests
+
+- Tests start the Streamlit app automatically through `tests/conftest.py`
+- Tests require Playwright and Chromium to be installed
+- Tests are end-to-end UI tests, so they depend on the rendered Streamlit interface
+- Tests may be slower when a real external website is audited
+
+---
+
+## Troubleshooting
+
+### Playwright browser is missing
+If you see errors about missing browser binaries:
+
+```powershell
+playwright install chromium
+```
+
+### AI insight generation fails
+Check:
+- `.env` exists
+- `OPENAI_API_KEY` is valid
+- internet access is available
+- the selected model name is valid for your OpenAI account
+
+### Audit does not return results
+Possible causes:
+- target site blocks automation
+- page takes too long to load
+- the site requires login
+- transient browser/network errors occurred
+
+### Tests fail because elements are missing
+The test selectors must match the actual Streamlit UI. If `app.py` changes, the tests may need to be updated as well.
+
+---
+
+## Known Limitations
+
+### Streamlit-generated accessibility limitations
+Because the app uses Streamlit, some accessibility issues can come from Streamlit-generated markup rather than your custom Python code.
+
+Examples may include:
+- ARIA attribute issues in framework-rendered controls
+- imperfect landmark structure
+- framework-level contrast issues in default widgets
+
+### External site variability
+Live scans depend on:
+- network availability
+- target page stability
+- page load time
+- anti-bot protections
+
+### Current audit scope
+The app audits a loaded page in a headless Chromium session. It does not currently:
+- crawl multiple pages
+- authenticate into protected apps
+- compare audits over time
+- export reports
+- support batch processing
+
+---
+
+## Security and Privacy
+
+- `.env` should never be committed to Git
+- `audits.db` may contain sensitive audit history and should not be committed
+- AI prompts may include HTML snippets from audited pages
+- Use caution when auditing pages containing sensitive content
+
+---
+
+## Suggested Future Improvements
+
+- stronger URL validation
+- duplicate-audit suppression
+- export to JSON/CSV/PDF
+- multi-page crawling
+- issue filtering by severity
+- authentication support
+- background job processing
+- report comparison between historical runs
+
+---
+
+## Development Notes
+
+The current implementation centers around:
+
+- `run_audit_logic()` in `app.py` for Playwright + axe execution
+- `save_audit()`, `get_history()`, and `load_audit_details()` for local persistence
+- `get_ai_fix_suggestion()` for AI-generated issue analysis
+- `st.session_state` for UI state and temporary AI result caching
+
+---
+
+## License / Usage
+
+Add your preferred license and usage terms here.

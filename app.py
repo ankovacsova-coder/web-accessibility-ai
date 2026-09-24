@@ -3,6 +3,7 @@ import sqlite3
 import json
 import os
 from datetime import datetime
+
 import streamlit as st
 from playwright.async_api import async_playwright
 from axe_playwright_python.async_playwright import Axe
@@ -61,8 +62,15 @@ st.markdown("""
 
     /* Sidebar & Buttons */
     [data-testid="stSidebar"] { border-right: 1px solid rgba(151, 166, 195, 0.2); }
-    .stButton>button { border-radius: 12px !important; font-weight: 600 !important; }
-    .stButton>button[kind="primary"] { background-color: #6366f1 !important; color: white !important; border: none !important; }
+    .stButton>button {
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+    }
+    .stButton>button[kind="primary"] {
+        background-color: #6366f1 !important;
+        color: white !important;
+        border: none !important;
+    }
 
     /* AI Insight Box */
     .ai-insight {
@@ -75,28 +83,40 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Sidebar
+
+# 2. Sidebar helpers
+def clear_all_callback():
+    for key in list(st.session_state.keys()):
+        if key.startswith("ai_res_") or key in ["display_results", "display_url", "display_id", "trigger_audit"]:
+            del st.session_state[key]
+    st.session_state["url_input"] = ""
+
+
+# 3. Sidebar
 with st.sidebar:
     st.markdown("### 🔍 Auditor")
     st.caption("Web Accessibility Analysis")
     st.divider()
+
     st.markdown("**TARGET URL**")
-    target_url = st.text_input("URL", placeholder="example.com", key="url_input", label_visibility="collapsed")
+    st.text_input(
+        "URL",
+        placeholder="example.com",
+        key="url_input",
+        label_visibility="collapsed",
+    )
+
     c1, c2 = st.columns(2)
     with c1:
         if st.button("Run audit", type="primary", use_container_width=True):
             st.session_state["trigger_audit"] = True
     with c2:
-        if st.button("Clear", use_container_width=True):
-            for key in list(st.session_state.keys()):
-                if key.startswith("ai_res_") or key in ["display_results", "display_url"]:
-                    del st.session_state[key]
-            st.session_state["url_input"] = ""
-            st.rerun()
+        st.button("Clear", use_container_width=True, on_click=clear_all_callback)
+
     st.divider()
     st.markdown("**AUDIT HISTORY**")
 
-# 3. Main Area - Hero Banner
+# 4. Main Area - Hero Banner
 st.markdown("""
     <div class="hero-banner">
         <h1>Build a web that everyone can use</h1>
@@ -111,12 +131,21 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 
-# 4. Database & Logic
+# 5. Database & Logic
 def init_db():
     conn = sqlite3.connect("audits.db")
     c = conn.cursor()
     c.execute(
-        'CREATE TABLE IF NOT EXISTS audits (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT, violation_count INTEGER, full_results TEXT, timestamp DATETIME)')
+        """
+        CREATE TABLE IF NOT EXISTS audits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            url TEXT,
+            violation_count INTEGER,
+            full_results TEXT,
+            timestamp DATETIME
+        )
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -125,8 +154,10 @@ def save_audit(url, count, results_dict):
     conn = sqlite3.connect("audits.db")
     c = conn.cursor()
     json_results = json.dumps(results_dict)
-    c.execute("INSERT INTO audits (url, violation_count, full_results, timestamp) VALUES (?, ?, ?, ?)",
-              (url, count, json_results, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    c.execute(
+        "INSERT INTO audits (url, violation_count, full_results, timestamp) VALUES (?, ?, ?, ?)",
+        (url, count, json_results, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+    )
     conn.commit()
     conn.close()
 
@@ -135,11 +166,14 @@ def get_history(limit=10):
     try:
         conn = sqlite3.connect("audits.db")
         c = conn.cursor()
-        c.execute("SELECT id, url, violation_count, timestamp FROM audits ORDER BY timestamp DESC LIMIT ?", (limit,))
+        c.execute(
+            "SELECT id, url, violation_count, timestamp FROM audits ORDER BY timestamp DESC LIMIT ?",
+            (limit,),
+        )
         data = c.fetchall()
         conn.close()
         return data
-    except:
+    except Exception:
         return []
 
 
@@ -155,20 +189,29 @@ def load_audit_details(audit_id):
 init_db()
 
 
-# 5. AI Logic
+# 6. AI Logic
 def get_ai_fix_suggestion(v_id, description, html_snippet):
     try:
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-        prompt = f"Act as a Senior Web Accessibility Consultant. Analyze violation: {v_id}. Description: {description}. Element: {html_snippet}. Provide User Impact, Business Risk, and Technical Fix with code."
-        response = client.chat.completions.create(model=model_name, messages=[{"role": "user", "content": prompt}],
-                                                  temperature=0.2)
+        prompt = (
+            f"Act as a Senior Web Accessibility Consultant. "
+            f"Analyze violation: {v_id}. "
+            f"Description: {description}. "
+            f"Element: {html_snippet}. "
+            f"Provide User Impact, Business Risk, and Technical Fix with code."
+        )
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+        )
         return response.choices[0].message.content
     except Exception as e:
         return f"⚠️ AI Analysis failed: {str(e)}"
 
 
-# 6. Core Audit Logic
+# 7. Core Audit Logic
 async def run_audit_logic(url):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -178,32 +221,36 @@ async def run_audit_logic(url):
             axe = Axe()
             results = await axe.run(page)
             return results.response
-        except Exception as e:
+        except Exception:
             return None
         finally:
             await browser.close()
 
 
-# 7. Main Logic Execution
+# 8. Main Logic Execution
 if st.session_state.get("trigger_audit"):
-    raw_url = st.session_state.url_input
+    raw_url = st.session_state.get("url_input", "").strip()
     if raw_url:
-        final_url = "https://" + raw_url.strip() if not raw_url.strip().startswith("http") else raw_url.strip()
+        final_url = raw_url if raw_url.startswith(("http://", "https://")) else f"https://{raw_url}"
+
         with st.spinner(f"Analyzing {final_url}..."):
             results = asyncio.run(run_audit_logic(final_url))
             if results:
                 violations = results.get("violations", [])
                 save_audit(final_url, len(violations), results)
+
                 history = get_history(1)
                 if history:
                     db_id, url, res = load_audit_details(history[0][0])
                     st.session_state["display_results"] = res
                     st.session_state["display_url"] = url
                     st.session_state["display_id"] = db_id
-                st.session_state["trigger_audit"] = False
-                st.rerun()
 
-# 8. Results Display
+        st.session_state["trigger_audit"] = False
+        st.rerun()
+
+
+# 9. Results Display
 if st.session_state.get("display_results"):
     res = st.session_state["display_results"]
     url = st.session_state["display_url"]
@@ -214,24 +261,34 @@ if st.session_state.get("display_results"):
     st.metric("Total Violations Found", len(violations))
 
     for i, violation in enumerate(violations, 1):
-        v_id = violation.get('id', 'unknown').upper()
-        impact = violation.get('impact', 'unknown').upper()
+        v_id = violation.get("id", "unknown").upper()
+        impact = violation.get("impact", "unknown").upper()
+
         with st.expander(f"{i}. [{v_id}] - {impact}"):
             st.write(f"**Issue:** {violation['description']}")
             nodes = violation.get("nodes", [])
+
             if nodes:
                 node = nodes[0]
                 st.markdown("---")
                 st.code(node.get("html"), language="html")
+
                 ai_key = f"ai_res_{audit_id}_{v_id}"
                 if st.button(f"✨ Generate AI Insight for {v_id}", key=f"btn_{ai_key}"):
                     with st.spinner("Analyzing..."):
-                        st.session_state[ai_key] = get_ai_fix_suggestion(v_id, violation['description'],
-                                                                         node.get("html"))
-                if ai_key in st.session_state:
-                    st.markdown(f'<div class="ai-insight">{st.session_state[ai_key]}</div>', unsafe_allow_html=True)
+                        st.session_state[ai_key] = get_ai_fix_suggestion(
+                            v_id,
+                            violation["description"],
+                            node.get("html"),
+                        )
 
-# Sidebar History
+                if ai_key in st.session_state:
+                    st.markdown(
+                        f'<div class="ai-insight">{st.session_state[ai_key]}</div>',
+                        unsafe_allow_html=True,
+                    )
+
+# 10. Sidebar History
 with st.sidebar:
     for a_id, h_url, h_count, h_time in get_history():
         short_url = h_url.replace("https://", "").replace("http://", "")[:20]
