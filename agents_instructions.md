@@ -1,61 +1,53 @@
-# Project Blueprint: AI-Native Accessibility Checker
+# Project Blueprint: Professional AI Accessibility Checker
 
-## Project Overview
-Build a professional web accessibility auditing platform using Python, Streamlit, and Playwright. The tool must perform deep DOM analysis using Axe-core and maintain a persistent history of audits in a local SQLite database.
+## Project Goal
 
-## Technical Stack
-- **Language:** Python 3.12+
-- **Browser Automation:** Playwright (Chromium)
-- **A11y Engine:** `axe-playwright-python`
-- **Frontend:** Streamlit (Wide layout)
-- **Database:** SQLite
-- **Security:** `python-dotenv` for API keys
+Create a professional web accessibility auditing platform that translates technical WCAG violations into human-readable business risks and technical solutions.
 
-## Core Logic Requirements
+## Technical Specifications
 
-### 1. URL Validation & Preparation
-- Implement a regex-based validation to ensure the input is a valid domain (e.g., `example.com`).
-- Automatically prepend `https://` if the protocol is missing.
-- Strip leading/trailing whitespace from user input.
+- **Core:** Python 3.12+, Playwright (Async), Axe-core (`axe-playwright-python`).
+- **UI:** Streamlit (Wide layout, Inter font, SaaS Blue theme: `#2563eb`).
+- **Data:** SQLite for persistent storage of full JSON audit results.
+- **AI:** OpenAI API integration using a model-agnostic approach via `.env`.
 
-### 2. Asynchronous Audit Engine
-- Use `async_playwright` to launch a headless Chromium browser.
-- Navigate to the target URL with `wait_until="networkidle"` and a 60s timeout.
-- Execute Axe audit and extract the `.response` attribute from the results object.
-- **Data Extraction:** For each violation, extract:
-    - `id` and `description`
-    - `impact` level (Critical, Serious, Moderate, Minor)
-    - `nodes`: For each node, get the `html` snippet and the `target` (CSS selector path).
+## Logic Requirements
 
-### 3. Data Persistence (SQLite)
-- **Initialization:** Use `CREATE TABLE IF NOT EXISTS` to ensure the DB file (`audits.db`) is created on first run.
-- **Schema:** Store `id`, `url`, `violation_count`, `full_results` (as a JSON string/TEXT), and `timestamp`.
-- **Duplicate Prevention:** Before saving, check if the same URL was audited within the last 2 seconds to prevent double-entries during Streamlit reruns.
-- **Retrieval:** Implement a function to load full JSON details by `audit_id`.
+### 1. Robust URL Handling
 
-## UI & UX Specifications (Streamlit)
+- Validate input using regex (domain format).
+- Auto-prepend `https://` and strip whitespace.
+- Prevent redundant audits via a 2-second duplicate check in the database.
 
-### 1. Layout & Styling
-- Set `layout="wide"` in `st.set_page_config`.
-- **Sidebar:** Use for inputs (URL, Run, Clear) and History list.
-- **Main Area:** Reserved for audit results and spinners.
-- **Custom CSS:**
-    - Improve contrast for primary buttons (Deep Blue: `#004a99`).
-    - Remove the default Streamlit red focus border on text inputs using `!important` CSS overrides.
-    - Ensure high contrast for history buttons in the sidebar.
+### 2. Database Schema
 
-### 2. State & Event Handling (Crucial)
-- **Avoid `st.form`:** It causes visual glitches (red borders) and overlapping text in narrow sidebars.
-- **Triggers:** Use `st.session_state` to manage audit triggers.
-- **Callbacks:** Use `on_change` for the text input and `on_click` for buttons to trigger the audit logic. This ensures the **Enter key** and **Button click** work reliably.
-- **Reruns:** Call `st.rerun()` immediately after saving a new audit to the database to refresh the sidebar history.
+- **Table:** `audits`
+- **Columns:** `id` (PK), `url`, `violation_count`, `full_results` (TEXT/JSON), `timestamp`.
+- **Requirement:** Must store the *entire* Axe-core response for future AI re-analysis.
 
-### 3. Results Display
-- Use `st.metric` for the total violation count.
-- Use `st.expander` for each violation type.
-- Inside expanders, use `st.code(language="html")` for HTML snippets and `st.caption` for CSS targets.
+### 3. AI Prompt Engineering (Crucial)
 
-## Security & Project Structure
-- Exclude `.env` and `audits.db` from version control via `.gitignore`.
-- Provide a `requirements.txt` with pinned versions for reproducibility.
-- Include a `README.md` documenting known framework limitations (e.g., Streamlit's internal a11y issues).
+- **Role:** Senior Web Accessibility Consultant & Business Analyst.
+- **Input:** Violation ID, Description, and HTML Snippet.
+- **Output Structure:**
+  1. **USER EXPERIENCE IMPACT:** Non-technical, empathetic explanation of the barrier.
+  2. **BUSINESS & LEGAL RISK:** Mention of EAA 2025 compliance and business loss.
+  3. **TECHNICAL REMEDIATION:** Step-by-step fix + corrected HTML code block.
+- **Implementation:** Use `st.session_state` to cache AI responses per `audit_id` and `violation_id`.
+
+## UI/UX Requirements
+
+- **Sidebar:** Audit Settings (Input, Run, Clear) and a clickable Audit History list.
+- **Main Area:** Success/Error messages, Total Violations metric, and Expandable violation details.
+- **Styling:**
+  - Use `st.markdown` with custom CSS to inject the 'Inter' font.
+  - Style primary buttons with modern blue (`#2563eb`).
+  - Style AI response boxes with white background, borders, and subtle shadows.
+  - Ensure all history buttons are high-contrast and accessible.
+- **Stability:** Use `on_change` and `on_click` callbacks to manage the `trigger_audit` state. Ensure the spinner appears in the main area.
+
+## Security & Maintenance
+
+- Exclude `audits.db` and `.env` from Git.
+- Maintain a pinned `requirements.txt`.
+- Document framework limitations regarding accessibility in the README.
