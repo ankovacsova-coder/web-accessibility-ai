@@ -124,6 +124,20 @@ AI responses should be cached in `st.session_state` using a stable key derived f
 - audit ID
 - violation ID
 
+AI generation must respect the `USE_AI` feature flag (see Environment Variables). When
+`USE_AI=false`, return a clear informational message instead of calling the OpenAI API,
+without requiring the user to remove or comment out `OPENAI_API_KEY`.
+
+### 7. Startup Self-Check
+On startup, the app must check its own environment and surface problems in the sidebar
+before the user attempts an audit, rather than failing deep inside the scan logic. At minimum:
+- warn if `USE_AI` is enabled but `OPENAI_API_KEY` is missing
+- error if the Playwright Chromium browser binary is not installed, with a hint to run
+  `python -m playwright install chromium`
+
+Failures during audit execution (e.g. Chromium fails to launch) should still surface a
+user-friendly error message pointing at the same remediation step.
+
 ---
 
 ## Database Requirements
@@ -197,6 +211,8 @@ The app should handle these cases gracefully:
 - axe scan failure
 - invalid or blocked target URL
 - AI API error
+- missing Playwright Chromium binary (detected proactively via startup self-check)
+- missing `OPENAI_API_KEY` while `USE_AI` is enabled (detected proactively via startup self-check)
 
 Preferred behavior:
 - do not crash
@@ -229,7 +245,8 @@ Should verify:
 #### `tests/conftest.py`
 Should:
 - start Streamlit automatically for the test session
-- wait until the app is reachable on `http://localhost:8501`
+- read the target port from the `STREAMLIT_SERVER_PORT` environment variable (default `8501`)
+- wait until the app is reachable on `http://localhost:<port>`
 - terminate the process after tests finish
 
 Use `sys.executable -m streamlit run app.py` rather than relying on a global `streamlit` command.
@@ -243,16 +260,23 @@ Tests should remain aligned with actual rendered widget labels and selectors.
 The app should read from `.env`.
 
 Required:
-- `OPENAI_API_KEY`
+- `OPENAI_API_KEY` (only required if `USE_AI` is enabled)
 
 Optional:
 - `OPENAI_MODEL` with default `gpt-4o-mini`
+- `USE_AI` with default `true`. Set to `false`/`0`/`no` to temporarily disable AI insight
+  generation (e.g. for testing) without removing or commenting out `OPENAI_API_KEY`.
+- `STREAMLIT_SERVER_PORT` with default `8501`. Streamlit reads this automatically, allowing
+  the port to be changed without code changes (e.g. to avoid conflicts with another running
+  instance or a different service already bound to the default port).
 
 `.env` files must use standard dotenv syntax:
 
 ```env
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
+USE_AI=true
+STREAMLIT_SERVER_PORT=8501
 ```
 
 Do not place GitHub Actions expressions such as `${{ secrets.OPENAI_API_KEY }}` inside `.env`.  
@@ -321,12 +345,16 @@ A generated version of the app is acceptable only if it satisfies all of the fol
 3. entering `example.com` results in scanning `https://example.com`
 4. audits are stored in SQLite and can be reopened from history
 5. violation details are displayed in expandable sections
-6. AI insight generation works when an API key is configured
-7. the project includes a useful `README.md`
-8. the project includes Playwright pytest tests
-9. tests are aligned with the actual rendered UI
-10. dependencies are pinned in `requirements.txt`
-11. the project includes a GitHub Actions CI workflow
+6. AI insight generation works when an API key is configured, and is cleanly disabled
+   (with a clear message) when `USE_AI=false`
+7. the app runs a startup self-check and warns/errors in the sidebar about missing
+   `OPENAI_API_KEY` or a missing Playwright Chromium install before the user runs an audit
+8. the server port is controlled via `STREAMLIT_SERVER_PORT` rather than hardcoded
+9. the project includes a useful `README.md`
+10. the project includes Playwright pytest tests
+11. tests are aligned with the actual rendered UI
+12. dependencies are pinned in `requirements.txt`
+13. the project includes a GitHub Actions CI workflow
 
 ---
 

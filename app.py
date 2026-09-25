@@ -6,12 +6,47 @@ from datetime import datetime
 
 import streamlit as st
 from playwright.async_api import async_playwright
+from playwright.sync_api import sync_playwright
 from axe_playwright_python.async_playwright import Axe
 from openai import OpenAI
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+
+def use_ai_enabled():
+    """Read USE_AI feature flag. Defaults to True when unset."""
+    return os.getenv("USE_AI", "true").strip().lower() not in ("false", "0", "no")
+
+
+def check_environment():
+    """Startup self-check. Returns a list of (level, message) warnings/errors
+    so problems (missing browser, missing API key, etc.) surface immediately
+    instead of failing deep inside an audit run."""
+    issues = []
+
+    if use_ai_enabled() and not os.getenv("OPENAI_API_KEY"):
+        issues.append(("warning", "USE_AI is enabled but OPENAI_API_KEY is not set. AI insights will fail."))
+
+    try:
+        with sync_playwright() as p:
+            chromium_path = p.chromium.executable_path
+        if not chromium_path or not os.path.exists(chromium_path):
+            issues.append((
+                "error",
+                "Playwright's Chromium browser was not found. Run `python -m playwright install chromium` "
+                "before starting an audit.",
+            ))
+    except Exception:
+        issues.append((
+            "error",
+            "Could not verify the Playwright Chromium install. Run `python -m playwright install chromium` "
+            "if audits fail to start.",
+        ))
+
+    return issues
+
 
 # 1. Professional UI Configuration
 st.set_page_config(page_title="Accessibility Auditor", page_icon="🔍", layout="wide")
@@ -96,6 +131,10 @@ def clear_all_callback():
 with st.sidebar:
     st.markdown("### 🔍 Auditor")
     st.caption("Web Accessibility Analysis")
+
+    for level, message in check_environment():
+        (st.error if level == "error" else st.warning)(message, icon="⚠️")
+
     st.divider()
 
     st.markdown("**TARGET URL**")
@@ -191,6 +230,8 @@ init_db()
 
 # 6. AI Logic
 def get_ai_fix_suggestion(v_id, description, html_snippet):
+    if not use_ai_enabled():
+        return "ℹ️ AI insights are disabled (USE_AI=false). Set USE_AI=true in your .env to re-enable them."
     try:
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -214,7 +255,14 @@ def get_ai_fix_suggestion(v_id, description, html_snippet):
 # 7. Core Audit Logic
 async def run_audit_logic(url):
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        try:
+            browser = await p.chromium.launch(headless=True)
+        except Exception as e:
+            st.error(
+                "Failed to launch Chromium. Run `python -m playwright install chromium` "
+                f"and try again. ({e})"
+            )
+            return None
         page = await browser.new_page()
         try:
             await page.goto(url, wait_until="networkidle", timeout=60000)
