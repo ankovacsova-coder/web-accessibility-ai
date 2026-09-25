@@ -131,7 +131,7 @@ web-accessibility-ai/
 ### 1. Clone the repository
 
 ```powershell
-git clone <your-repository-url>
+git clone https://github.com/ankovacsova-coder/web-accessibility-ai.git
 cd web-accessibility-ai
 ```
 
@@ -139,7 +139,18 @@ cd web-accessibility-ai
 
 ```powershell
 python -m venv .venv
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .venv\Scripts\Activate.ps1
+```
+
+```command prompt
+python -m venv .venv
+.venv\Scripts\activate.bat
+```
+
+```linux / macOS
+python -m venv .venv
+source .venv/bin/activate
 ```
 
 ### 3. Install Python dependencies
@@ -164,6 +175,8 @@ Create a `.env` file in the project root:
 ```env
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
+USE_AI=true
+STREAMLIT_SERVER_PORT=8501
 ```
 
 ### Variables
@@ -174,6 +187,16 @@ OPENAI_MODEL=gpt-4o-mini
 - `OPENAI_MODEL`  
   Optional. Defaults to `gpt-4o-mini` if not set.
 
+- `USE_AI`  
+  Optional. Defaults to `true`. Set to `false` to temporarily disable all AI insight
+  generation (e.g. for testing or to avoid API costs) without removing or commenting
+  out `OPENAI_API_KEY`. Accepted "off" values: `false`, `0`, `no`.
+
+- `STREAMLIT_SERVER_PORT`  
+  Optional. Defaults to `8501`. Streamlit reads this variable automatically, so you
+  can change the port without editing any code — useful if `8501` is already in use
+  or you are running multiple instances. See [Running the Application](#running-the-application).
+
 > Important: `.env` files must use standard `KEY=value` syntax.  
 > Do **not** use GitHub Actions expressions such as `${{ secrets.OPENAI_API_KEY }}` inside `.env`.  
 > That syntax belongs only in GitHub Actions workflow YAML files.
@@ -181,6 +204,13 @@ OPENAI_MODEL=gpt-4o-mini
 ---
 
 ## Running the Application
+
+On startup, the app runs a self-check and shows warnings/errors in the sidebar if:
+
+- `OPENAI_API_KEY` is missing while `USE_AI` is enabled
+- the Playwright Chromium browser is not installed
+
+This surfaces setup problems immediately instead of failing later during an audit.
 
 Start the Streamlit app:
 
@@ -193,6 +223,32 @@ Then open the local URL shown in the terminal, typically:
 ```text
 http://localhost:8501
 ```
+
+### Changing the port
+
+The port is **not** hardcoded — it is controlled by the `STREAMLIT_SERVER_PORT`
+environment variable (see [Environment Variables](#environment-variables)), which
+Streamlit reads automatically. To use a different port, either set it in `.env`
+or override it for a single run:
+
+```powershell
+$env:STREAMLIT_SERVER_PORT = "8502"
+streamlit run app.py
+```
+
+```linux / macOS
+STREAMLIT_SERVER_PORT=8502 streamlit run app.py
+```
+
+You may need a different port if:
+
+- another instance of this app is already running
+- a different service is already using `8501`
+- you are running the app and its tests at the same time
+
+If the port is already in use, Streamlit will fail to start with an
+`Address already in use` (or similar) error — set `STREAMLIT_SERVER_PORT` to a
+free port and try again.
 
 ---
 
@@ -280,12 +336,22 @@ Do not commit real secrets to the repository and do not place GitHub Actions sec
 
 ## Troubleshooting
 
+### Startup self-check
+The sidebar shows automatic warnings on launch if `OPENAI_API_KEY` is missing
+(while `USE_AI=true`) or if the Playwright Chromium browser is not installed.
+Resolve the reported issue before running an audit.
+
 ### Playwright browser is missing
 If you see errors about missing browser binaries:
 
 ```powershell
 python -m playwright install chromium
 ```
+
+### Port already in use
+If `streamlit run app.py` fails with an address/port-in-use error, set a
+different port via `STREAMLIT_SERVER_PORT` (see
+[Changing the port](#changing-the-port)).
 
 ### AI insight generation fails
 Check:
